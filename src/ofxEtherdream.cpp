@@ -2,19 +2,46 @@
 
 //--------------------------------------------------------------
 void ofxEtherdream::setup(bool bStartThread) {
-    etherdream_lib_start();
+    //etherdream_
+	etherdream_lib_start();
     
     setPPS(30000);
     setWaitBeforeSend(false);
     
 	/* Sleep for a bit over a second, to ensure that we see broadcasts
 	 * from all available DACs. */
-	usleep(1000000);
-    init();
+	
+	// Is there a better way than causing this freeze?
+	
+	//usleep(1000000);
+    //init();
+	
+	bWaitBeforeStartInit = true;
+	waitStartTime = ofGetElapsedTimef();
     
-    if(bStartThread) start();
+    //if(bStartThread) start();
 }
 
+
+void ofxEtherdream::update() {
+	
+	if(bWaitBeforeStartInit) {
+
+		//cout << ofGetElapsedTimef() - waitStartTime << endl;
+		
+		if(ofGetElapsedTimef() - waitStartTime > 1.0) {
+			
+			cout << "INITIALISING ----------- " << ofGetElapsedTimef() << " " << waitStartTime << endl;
+			bWaitBeforeStartInit = false;
+			
+			init();
+			start();
+			
+		}
+		
+	}
+	
+}
 
 //--------------------------------------------------------------
 bool ofxEtherdream::stateIsFound() {
@@ -22,13 +49,40 @@ bool ofxEtherdream::stateIsFound() {
 }
 
 //--------------------------------------------------------------
+string ofxEtherdream :: getDeviceStateString() {
+	
+	if(device== NULL) return "No devices connected";
+	if(device->state == ST_DISCONNECTED)
+		return "Disconnected";
+	else if(device->state == ST_READY)
+		return "Ready";
+	else if(device->state == ST_RUNNING)
+		return "Running";
+	else if(device->state == ST_BROKEN)
+		return "Broken!";
+	else if(device->state == ST_SHUTDOWN)
+		return "Shut down";
+	else
+		return "Unknown state"; 
+	
+	
+	
+
+}
+
+
+//--------------------------------------------------------------
 bool ofxEtherdream::checkConnection(bool bForceReconnect) {
+	
+	if(bWaitBeforeStartInit) return true;
     if(device->state == ST_SHUTDOWN) {
-        if(bForceReconnect) {
-            kill();
+		kill();
+      
+		if(bForceReconnect) {
+           
             setup();
         }
-        return false;
+		return false;
     }
     return true;
 }
@@ -48,30 +102,35 @@ void ofxEtherdream::init() {
 	device = etherdream_get(0);
     
 	ofLogNotice() << "ofxEtherdream::init - Connecting...";
-	if (etherdream_connect(device) < 0) return 1;
-    
+	// NOTE this function blocks!
+	if (etherdream_connect(device) < 0) {
+		state = ETHERDREAM_NOTFOUND;
+		
+		return 1;
+	}
     ofLogNotice() << "ofxEtherdream::init - done";
-    
     state = ETHERDREAM_FOUND;
 }
 
 //--------------------------------------------------------------
 void ofxEtherdream::threadedFunction() {
     while (isThreadRunning() != 0) {
-        
-        switch (state) {
-            case ETHERDREAM_NOTFOUND:
-                if(bAutoConnect) init();
-                break;
-                
-            case ETHERDREAM_FOUND:
-                if(lock()) {
-                    send();
-                    unlock();
-                }
-                break;
-        }
-    }
+
+		
+		switch (state) {
+			case ETHERDREAM_NOTFOUND:
+				//if(bAutoConnect) init();
+				break;
+				
+			case ETHERDREAM_FOUND:
+				if(lock()) {
+					send();
+					unlock();
+				}
+				break;
+		}
+		
+	}
 }
 
 //--------------------------------------------------------------

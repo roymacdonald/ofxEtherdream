@@ -14,20 +14,26 @@
 
 class ofxEtherdream : public ofThread {
 public:
-    ofxEtherdream():state(ETHERDREAM_NOTFOUND), bAutoConnect(false) {}
+    ofxEtherdream():state(ETHERDREAM_NOTFOUND), bAutoConnect(false), device(NULL), bWaitBeforeStartInit(false) {}
     
     ~ofxEtherdream() {
         kill();
     }
     
+	void update(); 
+	
     bool stateIsFound();
-    
+	
+	string getDeviceStateString();
+	
     void kill() {
+		bWaitBeforeStartInit = false;
         clear();
         stop();
         if(stateIsFound()) {
             etherdream_stop(device);
             etherdream_disconnect(device);
+			state = ETHERDREAM_NOTFOUND;
         }
     }
     
@@ -68,6 +74,9 @@ private:
     int pps;
     bool bWaitBeforeSend;
     bool bAutoConnect;
+	
+	bool bWaitBeforeStartInit;
+	float waitStartTime;
     
     struct etherdream *device;
     vector<ofxIlda::Point> points;

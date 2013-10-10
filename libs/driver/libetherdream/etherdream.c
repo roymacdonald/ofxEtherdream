@@ -155,7 +155,8 @@ static int read_bytes(struct etherdream *d, char *buf, int len) {
  */
 static int send_all(struct etherdream *d, const char *data, int len) {
 	do {
-		int res = wait_for_fd_activity(d, 100000, 1);
+		// changed this to double for the timeout
+		int res = wait_for_fd_activity(d, 200000, 1);
 		if (res < 0)
 			return -1;
 		if (res == 0) {
@@ -581,7 +582,8 @@ int etherdream_connect(struct etherdream *d) {
 
 void etherdream_disconnect(struct etherdream *d) {
 	pthread_mutex_lock(&d->mutex);
-	if (d->state == ST_READY)
+	// adding ST_RUNNING state to this conditional. 
+	if ((d->state == ST_READY)||(d->state == ST_RUNNING))
 		pthread_cond_broadcast(&d->loop_cond);
 	d->state = ST_SHUTDOWN;
 	pthread_mutex_unlock(&d->mutex);

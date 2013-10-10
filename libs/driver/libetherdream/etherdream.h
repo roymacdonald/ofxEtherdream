@@ -48,7 +48,7 @@ struct etherdream_point {
 #define MAX_LATE_ACKS		64
 #define MIN_SEND_POINTS		40
 #define DEFAULT_TIMEOUT		2000000
-#define DEBUG_THRESHOLD_POINTS	800
+#define DEBUG_THRESHOLD_POINTS	0
 
     
     struct etherdream_conn {
