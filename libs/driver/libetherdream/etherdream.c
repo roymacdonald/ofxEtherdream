@@ -155,8 +155,7 @@ static int read_bytes(struct etherdream *d, char *buf, int len) {
  */
 static int send_all(struct etherdream *d, const char *data, int len) {
 	do {
-		// changed this to double for the timeout
-		int res = wait_for_fd_activity(d, 200000, 1);
+		int res = wait_for_fd_activity(d, 100000, 1);
 		if (res < 0)
 			return -1;
 		if (res == 0) {
@@ -582,8 +581,7 @@ int etherdream_connect(struct etherdream *d) {
 
 void etherdream_disconnect(struct etherdream *d) {
 	pthread_mutex_lock(&d->mutex);
-	// adding ST_RUNNING state to this conditional. 
-	if ((d->state == ST_READY)||(d->state == ST_RUNNING))
+	if (d->state == ST_READY)
 		pthread_cond_broadcast(&d->loop_cond);
 	d->state = ST_SHUTDOWN;
 	pthread_mutex_unlock(&d->mutex);
@@ -632,7 +630,7 @@ int etherdream_write(struct etherdream *d, const struct etherdream_point *pts,
 	// trace(d, "M: Writing: %d points, %d reps, %d pps\n", npts, reps, pps);
 
 	/* XXX: automatically pad out small frames */
-
+	
 	int i;
 	for (i = 0; i < npts; i++) {
 		next->data[i].x = pts[i].x;
@@ -645,7 +643,7 @@ int etherdream_write(struct etherdream *d, const struct etherdream_point *pts,
 		next->data[i].u2 = pts[i].u2;
 		next->data[i].control = 0;
 	}
-
+	
 	next->pps = pps;
 	next->repeatcount = reps;
 	next->points = npts;

@@ -12,37 +12,45 @@
 #include "etherdream.h"
 #include "ofxIldaFrame.h"
 
+typedef enum {
+	ETHERDREAM_IDLE,
+	ETHERDREAM_WAITING,
+	ETHERDREAM_CONNECTION_FAILED,
+	ETHERDREAM_RUNNING,
+	ETHERDREAM_DISCONNECTED
+} EtherdreamState;
+
 class ofxEtherdream : public ofThread {
 public:
-    ofxEtherdream():state(ETHERDREAM_NOTFOUND), bAutoConnect(false), device(NULL), bWaitBeforeStartInit(false) {}
+    ofxEtherdream(){
+		device = NULL;
+		state = ETHERDREAM_IDLE;
+	}
     
     ~ofxEtherdream() {
         kill();
     }
     
-	void update(); 
-	
-    bool stateIsFound();
-	
-	string getDeviceStateString();
-	
+    //bool stateIsFound();
+    
     void kill() {
-		bWaitBeforeStartInit = false;
+		cout << "ETHERDREAM KILL -----------------------------------------------" << endl;
         clear();
         stop();
-        if(stateIsFound()) {
+        //if(state==ETHERDREAM_RUNNING) {
+		if(device!=NULL) {
             etherdream_stop(device);
             etherdream_disconnect(device);
-			state = ETHERDREAM_NOTFOUND;
         }
+		state = ETHERDREAM_IDLE;
     }
     
-    void setup(bool bStartThread = true);
+    void setup();
     virtual void threadedFunction();
     
     
     // check if the device has shutdown (weird bug in etherdream driver) and reconnect if nessecary
-    bool checkConnection(bool bForceReconnect = true);
+    //bool checkConnection(bool bForceReconnect = true);
     
     void clear();
     void start();
@@ -61,22 +69,23 @@ public:
     
     void setWaitBeforeSend(bool b);
     bool getWaitBeforeSend() const;
-    
+	
+	string getDeviceStateString();
+	string getStateString();
+	
+	int waitStartMils;
+	
+	EtherdreamState state;
+
+	
 private:
     void init();
     
 private:
-    enum {
-        ETHERDREAM_NOTFOUND = 0,
-        ETHERDREAM_FOUND
-    } state;
-    
+   		
     int pps;
     bool bWaitBeforeSend;
-    bool bAutoConnect;
-	
-	bool bWaitBeforeStartInit;
-	float waitStartTime;
+
     
     struct etherdream *device;
     vector<ofxIlda::Point> points;

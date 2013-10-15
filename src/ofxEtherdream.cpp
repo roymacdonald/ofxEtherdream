@@ -1,54 +1,101 @@
 #include "ofxEtherdream.h"
 
 //--------------------------------------------------------------
-void ofxEtherdream::setup(bool bStartThread) {
-    //etherdream_
-	etherdream_lib_start();
+void ofxEtherdream::setup() {
+    etherdream_lib_start();
     
     setPPS(30000);
     setWaitBeforeSend(false);
     
-	/* Sleep for a bit over a second, to ensure that we see broadcasts
-	 * from all available DACs. */
+	cout << "ETHERDREAM SET UP -----------------------------------------------" << endl;
 	
-	// Is there a better way than causing this freeze?
-	
-	//usleep(1000000);
-    //init();
-	
-	bWaitBeforeStartInit = true;
-	waitStartTime = ofGetElapsedTimef();
-    
-    //if(bStartThread) start();
+	state = ETHERDREAM_WAITING;
+	waitStartMils = ofGetElapsedTimeMillis(); 
+
+
+	start();
 }
 
 
-void ofxEtherdream::update() {
-	
-	if(bWaitBeforeStartInit) {
+//--------------------------------------------------------------
+//bool ofxEtherdream::stateIsFound() {
+//    return state == ETHERDREAM_FOUND;
+//}
 
-		//cout << ofGetElapsedTimef() - waitStartTime << endl;
-		
-		if(ofGetElapsedTimef() - waitStartTime > 1.0) {
-			
-			cout << "INITIALISING ----------- " << ofGetElapsedTimef() << " " << waitStartTime << endl;
-			bWaitBeforeStartInit = false;
-			
-			init();
-			start();
-			
-		}
-		
+string ofxEtherdream::getStateString() {
+	switch (state) {
+		case ETHERDREAM_IDLE :
+			return "ETHERDREAM_IDLE";
+			break;
+		case ETHERDREAM_WAITING :
+			return "ETHERDREAM_WAITING";
+			break;
+		case ETHERDREAM_CONNECTION_FAILED :
+			return "ETHERDREAM_CONNECTION_FAILED";
+			break;
+		case ETHERDREAM_RUNNING :
+			return "ETHERDREAM_RUNNING";
+			break;
+		case ETHERDREAM_DISCONNECTED :
+			return "ETHERDREAM_DISCONNECTED";
+			break;
 	}
 	
+	return "error";
+	
 }
 
+/*
 //--------------------------------------------------------------
-bool ofxEtherdream::stateIsFound() {
-    return state == ETHERDREAM_FOUND;
+bool ofxEtherdream::checkConnection(bool bForceReconnect) {
+ 
+	//cout << "ETHERDREAM CHECK CONNECTION -----------------------------------------------" << endl;
+
+	if(device->state == ST_SHUTDOWN) {
+		state = ETHERDREAM_NOTFOUND;
+        if(bForceReconnect) {
+			cout << "ETHERDREAM FORCE RECONNECT -----------------------------------------------" << endl;
+
+            kill();
+            setup();
+        }
+        return false;
+    }
+    return true;
+}
+*/
+//--------------------------------------------------------------
+void ofxEtherdream::init() {
+	cout << "ETHERDREAM INIT -----------------------------------------------" << endl;
+    int device_num = etherdream_dac_count();
+
+	cout << "FOUND " << device_num << " DEVICE(S)" << endl;
+	if (!device_num) {
+		ofLogWarning() << "ofxEtherdream::init - No DACs found";
+		state = ETHERDREAM_CONNECTION_FAILED;
+
+		return 0;
+	}
+    
+	for (int i=0; i<device_num; i++) {
+		ofLogNotice() << "ofxEtherdream::init - " << i << " Ether Dream " << etherdream_get_id(etherdream_get(i));
+
+	}
+    
+	device = etherdream_get(0);
+    
+	ofLogNotice() << "ofxEtherdream::init - Connecting...";
+	if (etherdream_connect(device) < 0) {
+		state = ETHERDREAM_CONNECTION_FAILED;
+		return 1;
+	}
+    
+    ofLogNotice() << "ofxEtherdream::init - done";
+    
+    state = ETHERDREAM_RUNNING;
 }
 
-//--------------------------------------------------------------
+
 string ofxEtherdream :: getDeviceStateString() {
 	
 	if(device== NULL) return "No devices connected";
@@ -63,95 +110,106 @@ string ofxEtherdream :: getDeviceStateString() {
 	else if(device->state == ST_SHUTDOWN)
 		return "Shut down";
 	else
-		return "Unknown state"; 
+		return "Unknown state";
 	
 	
 	
-
-}
-
-
-//--------------------------------------------------------------
-bool ofxEtherdream::checkConnection(bool bForceReconnect) {
 	
-	if(bWaitBeforeStartInit) return true;
-    if(device->state == ST_SHUTDOWN) {
-		kill();
-      
-		if(bForceReconnect) {
-           
-            setup();
-        }
-		return false;
-    }
-    return true;
-}
-
-//--------------------------------------------------------------
-void ofxEtherdream::init() {
-    int device_num = etherdream_dac_count();
-	if (!device_num) {
-		ofLogWarning() << "ofxEtherdream::init - No DACs found";
-		return 0;
-	}
-    
-	for (int i=0; i<device_num; i++) {
-		ofLogNotice() << "ofxEtherdream::init - " << i << " Ether Dream " << etherdream_get_id(etherdream_get(i));
-	}
-    
-	device = etherdream_get(0);
-    
-	ofLogNotice() << "ofxEtherdream::init - Connecting...";
-	// NOTE this function blocks!
-	if (etherdream_connect(device) < 0) {
-		state = ETHERDREAM_NOTFOUND;
-		
-		return 1;
-	}
-    ofLogNotice() << "ofxEtherdream::init - done";
-    state = ETHERDREAM_FOUND;
 }
 
 //--------------------------------------------------------------
 void ofxEtherdream::threadedFunction() {
     while (isThreadRunning() != 0) {
-
-		
-		switch (state) {
-			case ETHERDREAM_NOTFOUND:
-				//if(bAutoConnect) init();
-				break;
+        
+        switch (state) {
+            case ETHERDREAM_WAITING:
 				
-			case ETHERDREAM_FOUND:
 				if(lock()) {
-					send();
-					unlock();
-				}
+					cout << ofGetElapsedTimeMillis() - waitStartMils << endl;
+					if (etherdream_dac_count()>0) {
+						init();
+					}
+					// if it's been more than 2 seconds
+					if(ofGetElapsedTimeMillis() - waitStartMils > 2000){
+						state = ETHERDREAM_CONNECTION_FAILED;
+						//stop();
+					}
+					/*
+					if(state == ETHERDREAM_NOTFOUND) {
+						cout << "ETHERDREAM STOPPING" << endl;
+						
+					}*/
+					
+					
+                    unlock();
+                }
+				// sleep for .1 of a second
+				usleep(100000);
+				
+                break;
+                /*
+			case ETHERDREAM_NOTFOUND:
+                if(bAutoConnect) init();
+                break;
+                */
+            case ETHERDREAM_RUNNING:
+                if(lock()) {
+					if((device==NULL) || (device->state == ST_DISCONNECTED) || (device->state == ST_BROKEN) || (device->state == ST_SHUTDOWN)) {
+						state = ETHERDREAM_DISCONNECTED;
+					} else {
+						send();
+					}
+                    unlock();
+                }
+                break;
+			default:
 				break;
-		}
-		
-	}
+			
+        }
+    }
 }
 
 //--------------------------------------------------------------
 void ofxEtherdream::start() {
-    startThread(true, false);  // TODO: blocking or nonblocking?
+    startThread(false, false);  // TODO: blocking or nonblocking?
 }
 
 //--------------------------------------------------------------
 void ofxEtherdream::stop() {
+	
     stopThread();
 }
 
 //--------------------------------------------------------------
 void ofxEtherdream::send() {
-    if(!stateIsFound() || points.empty()) return;
+//    if(!stateIsFound() || points.empty()) return;
+	
+	if((points.empty()) || (device==NULL) || (device->state == ST_DISCONNECTED) || (device->state == ST_BROKEN) || (device->state == ST_SHUTDOWN)) return;
+  
+	//cout << "ETHERDREAM SENDING POINTS " << points.size() << endl;
     
-    if(bWaitBeforeSend) etherdream_wait_for_ready(device);
+	if(bWaitBeforeSend) etherdream_wait_for_ready(device);
     else if(!etherdream_is_ready(device)) return;
-    
+	/*
+    dataBuffer.clear();
+	// fill the buffer with something important
+	for(int i = 0; i<points.size(); i++) {
+		ofxIlda::Point& p = points[i];
+		dataBuffer.append(ofToString(p.x)+ " " );
+		dataBuffer.append(ofToString(p.y)+ " " );
+		dataBuffer.append(ofToString(p.r)+ " " );
+		dataBuffer.append(ofToString(p.g)+ " " );
+		dataBuffer.append(ofToString(p.b)+ " " );
+		dataBuffer.append(ofToString(p.a)+ " " );
+		dataBuffer.append(ofToString(p.u1)+ " " );
+		dataBuffer.append(ofToString(p.u2)+ "\n" );
+	}*/
+	
+	//bool fileWritten = ofBufferToFile("etherdream.txt", dataBuffer);
+	//
+	
     // DODGY HACK: casting ofxIlda::Point* to etherdream_point*
-    int res = etherdream_write(device, (etherdream_point*)points.data(), points.size(), pps, 1);
+    int res = etherdream_write(device, (etherdream_point*)points.data(), points.size(), pps, -1);
     if (res != 0) {
         ofLogVerbose() << "ofxEtherdream::write " << res;
     }
