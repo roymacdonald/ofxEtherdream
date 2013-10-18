@@ -11,7 +11,7 @@ void ofxEtherdream::setup() {
 	
 	state = ETHERDREAM_WAITING;
 	waitStartMils = ofGetElapsedTimeMillis(); 
-
+	recheckDelay = 0;
 
 	start();
 }
@@ -125,35 +125,28 @@ void ofxEtherdream::threadedFunction() {
             case ETHERDREAM_WAITING:
 				
 				if(lock()) {
-					cout << ofGetElapsedTimeMillis() - waitStartMils << endl;
-					if (etherdream_dac_count()>0) {
-						init();
-					}
-					// if it's been more than 2 seconds
-					if(ofGetElapsedTimeMillis() - waitStartMils > 2000){
-						state = ETHERDREAM_CONNECTION_FAILED;
-						//stop();
-					}
-					/*
-					if(state == ETHERDREAM_NOTFOUND) {
-						cout << "ETHERDREAM STOPPING" << endl;
+					recheckDelay --; 
+					if(recheckDelay<0){
 						
-					}*/
-					
-					
+						//cout << ofGetElapsedTimeMillis() - waitStartMils << endl;
+						if (etherdream_dac_count()>0) {
+							init();
+						}
+						// if it's been more than 2 seconds
+						if(ofGetElapsedTimeMillis() - waitStartMils > 1000){
+							state = ETHERDREAM_CONNECTION_FAILED;
+						}						
+						recheckDelay = 1000000;
+					}
+							
                     unlock();
                 }
-				// sleep for .1 of a second
-				usleep(100000);
-				
+	
                 break;
-                /*
-			case ETHERDREAM_NOTFOUND:
-                if(bAutoConnect) init();
-                break;
-                */
+
             case ETHERDREAM_RUNNING:
                 if(lock()) {
+					this->blocking = true;
 					if((device==NULL) || (device->state == ST_DISCONNECTED) || (device->state == ST_BROKEN) || (device->state == ST_SHUTDOWN)) {
 						state = ETHERDREAM_DISCONNECTED;
 					} else {

@@ -35,11 +35,14 @@ public:
     
     void kill() {
 		cout << "ETHERDREAM KILL -----------------------------------------------" << endl;
+		cout << getDeviceStateString(); 
         clear();
         stop();
         //if(state==ETHERDREAM_RUNNING) {
 		if(device!=NULL) {
+			cout << "ETHERDREAM stop -----------------------------------------------" << endl;
             etherdream_stop(device);
+			cout << "ETHERDREAM disconnect -----------------------------------------------" << endl;
             etherdream_disconnect(device);
         }
 		state = ETHERDREAM_IDLE;
@@ -54,6 +57,7 @@ public:
     
     void clear();
     void start();
+    void startNonBlocking();
     void stop();
 
     void addPoints(const vector<ofxIlda::Point>& _points);
@@ -74,6 +78,7 @@ public:
 	string getStateString();
 	
 	int waitStartMils;
+	int recheckDelay = 0;
 	
 	EtherdreamState state;
 
