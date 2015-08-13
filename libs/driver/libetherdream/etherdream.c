@@ -434,7 +434,7 @@ static void *dac_loop(void *dv) {
 		/* Wait for us to have data */
 		int state;
 		while ((state = d->state) == ST_READY) {
-			trace(d, "L: waiting\n");
+//			trace(d, "L: waiting\n");   // MEMO
 			pthread_cond_wait(&d->loop_cond, &d->mutex);
 		}
 
@@ -541,7 +541,7 @@ static void *dac_loop(void *dv) {
 			pthread_cond_broadcast(&d->loop_cond);
 		} else if (b->repeatcount >= 0) {
 			/* Stop playing until we get a new frame. */
-			trace(d, "L: returning to idle\n");
+//			trace(d, "L: returning to idle\n"); // MEMO
 			d->state = ST_READY;
 		} else {
 			/* repeatcount is negative and there's no new frame,
@@ -630,7 +630,7 @@ int etherdream_write(struct etherdream *d, const struct etherdream_point *pts,
 	// trace(d, "M: Writing: %d points, %d reps, %d pps\n", npts, reps, pps);
 
 	/* XXX: automatically pad out small frames */
-	
+
 	int i;
 	for (i = 0; i < npts; i++) {
 		next->data[i].x = pts[i].x;
@@ -643,7 +643,7 @@ int etherdream_write(struct etherdream *d, const struct etherdream_point *pts,
 		next->data[i].u2 = pts[i].u2;
 		next->data[i].control = 0;
 	}
-	
+
 	next->pps = pps;
 	next->repeatcount = reps;
 	next->points = npts;
