@@ -10,61 +10,67 @@
 
 #include "ofMain.h"
 #include "etherdream.h"
-#include "ofxIldaFrame.h"
+#include "ofxIldaPoint.h"
 
-typedef enum {
-	ETHERDREAM_IDLE,
-	ETHERDREAM_WAITING,
-	ETHERDREAM_CONNECTION_FAILED,
-	ETHERDREAM_RUNNING,
-	ETHERDREAM_DISCONNECTED
-} EtherdreamState;
+static int IS_ETHERDREAM_LIB_STARTED = false;
 
 class ofxEtherdream : public ofThread {
 public:
-    ofxEtherdream(){
-		device = NULL;
-		state = ETHERDREAM_IDLE;
-	}
+    // must be called once
+    inline static int startEtherdreamLib(){
+        if (IS_ETHERDREAM_LIB_STARTED){
+            ofLog(OF_LOG_NOTICE, "etherdream libs already started -- do nothing");
+            return 0;
+        }
+        
+        etherdream_lib_start();
+        /* Sleep for a bit over two second, to ensure that we see broadcasts
+         * from all available DACs. */
+        usleep(2000000);
+        
+        IS_ETHERDREAM_LIB_STARTED = true;
+        return 1;
+    }
+    
+    inline static int getNumEtherdream(){
+        startEtherdreamLib();
+        return etherdream_dac_count();
+    }
+    
+    ofxEtherdream():state(ETHERDREAM_NOTFOUND), bAutoConnect(false) {}
     
     ~ofxEtherdream() {
         kill();
     }
     
-    //bool stateIsFound();
+    bool stateIsFound();
     
     void kill() {
-		cout << "ETHERDREAM KILL -----------------------------------------------" << endl;
-		cout << getDeviceStateString(); 
         clear();
         stop();
-        //if(state==ETHERDREAM_RUNNING) {
-		if(device!=NULL) {
-			cout << "ETHERDREAM stop -----------------------------------------------" << endl;
+        if(stateIsFound()) {
             etherdream_stop(device);
-			cout << "ETHERDREAM disconnect -----------------------------------------------" << endl;
             etherdream_disconnect(device);
         }
-		state = ETHERDREAM_IDLE;
     }
     
-    void setup();
+    void setup(bool bStartThread = true, int idEtherdream = 0);
+	
     virtual void threadedFunction();
     
     
     // check if the device has shutdown (weird bug in etherdream driver) and reconnect if nessecary
-    //bool checkConnection(bool bForceReconnect = true);
+    bool checkConnection(bool bForceReconnect = true);
     
     void clear();
     void start();
-    void startNonBlocking();
     void stop();
 
     void addPoints(const vector<ofxIlda::Point>& _points);
-    void addPoints(const ofxIlda::Frame &ildaFrame);
+    //void addPoints(const ofxIlda::Frame &ildaFrame);
     
     void setPoints(const vector<ofxIlda::Point>& _points);
-    void setPoints(const ofxIlda::Frame &ildaFrame);
+   // void setPoints(const ofxIlda::Frame &ildaFrame);
     
     void send();
     
@@ -73,25 +79,24 @@ public:
     
     void setWaitBeforeSend(bool b);
     bool getWaitBeforeSend() const;
-	
-	string getDeviceStateString();
-	string getStateString();
-	
-	int waitStartMils;
-	int recheckDelay = 0;
-	
-	EtherdreamState state;
-
-	
+    
+    unsigned long getEtherdreamId();
+    
 private:
     void init();
     
 private:
-   		
+    enum {
+        ETHERDREAM_NOTFOUND = 0,
+        ETHERDREAM_FOUND
+    } state;
+    
     int pps;
     bool bWaitBeforeSend;
-
+    bool bAutoConnect;
     
     struct etherdream *device;
     vector<ofxIlda::Point> points;
+    
+    unsigned long idEtherdreamConnection;
 };
