@@ -29,6 +29,7 @@ public:
         usleep(2000000);
         
         IS_ETHERDREAM_LIB_STARTED = true;
+		//etherdream.v
         return 1;
     }
     
