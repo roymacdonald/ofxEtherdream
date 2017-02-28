@@ -96,7 +96,7 @@ private:
     bool bWaitBeforeSend;
     bool bAutoConnect;
     
-    struct etherdream *device;
+    struct etherdream *device = NULL;
     vector<ofxIlda::Point> points;
     
     unsigned long idEtherdreamConnection;

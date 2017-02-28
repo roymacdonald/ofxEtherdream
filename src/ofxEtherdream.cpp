@@ -29,7 +29,7 @@ bool ofxEtherdream::stateIsFound() {
 
 //--------------------------------------------------------------
 bool ofxEtherdream::checkConnection(bool bForceReconnect) {
-    if(device->state == ST_SHUTDOWN || device->state == ST_BROKEN || device->state == ST_DISCONNECTED) {
+    if((device==NULL) || (device->state == ST_SHUTDOWN || device->state == ST_BROKEN || device->state == ST_DISCONNECTED)) {
         
         if(bForceReconnect) {
             kill();
