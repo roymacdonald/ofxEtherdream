@@ -2,19 +2,21 @@
 
 //--------------------------------------------------------------
 void ofxEtherdream::setup(bool bStartThread, int idEtherdream) {
-
+    
     idEtherdreamConnection = idEtherdream;
     
-    etherdream_lib_start();
-    
+    startEtherdreamLib();
+	
+	if(thread.isRunning()) {
+		stopThread();
+		bStartThread = true; 
+	}
     setPPS(30000);
     setWaitBeforeSend(false);
     
-	/* Sleep for a bit over a second, to ensure that we see broadcasts
-	 * from all available DACs. */
-	usleep(1000000);
-    
     init();
+    
+    idEtherdreamConnection = getEtherdreamId();
     
     if(bStartThread) start();
 }
@@ -27,7 +29,7 @@ bool ofxEtherdream::stateIsFound() {
 
 //--------------------------------------------------------------
 bool ofxEtherdream::checkConnection(bool bForceReconnect) {
-    if(device->state == ST_SHUTDOWN || device->state == ST_BROKEN || device->state == ST_DISCONNECTED) {
+    if((device==NULL) || (device->state == ST_SHUTDOWN || device->state == ST_BROKEN || device->state == ST_DISCONNECTED)) {
         
         if(bForceReconnect) {
             kill();
@@ -41,20 +43,25 @@ bool ofxEtherdream::checkConnection(bool bForceReconnect) {
 
 //--------------------------------------------------------------
 void ofxEtherdream::init() {
-    int device_num = etherdream_dac_count();
-	if (!device_num || idEtherdreamConnection>device_num) {
-		ofLogWarning() << "ofxEtherdream::init - No DACs found";
-		return;// 0;
-	}
+//    int device_num = etherdream_dac_count();
+//	if (!device_num || idEtherdreamConnection>device_num) {
+//		ofLogWarning() << "ofxEtherdream::init - No DACs found";
+//		return 0;
+//	}
     
-	for (int i=0; i<device_num; i++) {
-		ofLogNotice() << "ofxEtherdream::init - " << i << " Ether Dream " << etherdream_get_id(etherdream_get(i));
-    }
+//	for (int i=0; i<device_num; i++) {
+//		ofLogNotice() << "ofxEtherdream::init - " << i << " Ether Dream " << etherdream_get_id(etherdream_get(i));
+//    }
+    
+    ofLogNotice("ofxEtherdream::init - initializing etherdream "+ofToString(idEtherdreamConnection));
     
     device = etherdream_get(idEtherdreamConnection);
     
     ofLogNotice() << "ofxEtherdream::init - Connecting...";
-    if (etherdream_connect(device) < 0) return;// 1;
+    if (device == NULL || etherdream_connect(device) < 0) {
+        ofLogWarning() << "ofxEtherdream::init - No DACs found";
+        return 1;
+    }
 
     ofLogNotice() << "ofxEtherdream::init - done";
     
@@ -82,7 +89,7 @@ void ofxEtherdream::threadedFunction() {
 
 //--------------------------------------------------------------
 void ofxEtherdream::start() {
-    startThread();//true, false);  // TODO: blocking or nonblocking?
+    startThread(true);  // TODO: blocking or nonblocking?
 }
 
 //--------------------------------------------------------------
@@ -124,12 +131,12 @@ void ofxEtherdream::addPoints(const vector<ofxIlda::Point>& _points) {
     }
 }
 
-
-//--------------------------------------------------------------
-void ofxEtherdream::addPoints(const ofxIlda::Frame &ildaFrame) {
-    addPoints(ildaFrame.getPoints());
-}
-
+//
+////--------------------------------------------------------------
+//void ofxEtherdream::addPoints(const ofxIlda::Frame &ildaFrame) {
+//    addPoints(ildaFrame.getPoints());
+//}
+//
 
 //--------------------------------------------------------------
 void ofxEtherdream::setPoints(const vector<ofxIlda::Point>& _points) {
@@ -139,11 +146,11 @@ void ofxEtherdream::setPoints(const vector<ofxIlda::Point>& _points) {
     }
 }
 
-
-//--------------------------------------------------------------
-void ofxEtherdream::setPoints(const ofxIlda::Frame &ildaFrame) {
-    setPoints(ildaFrame.getPoints());
-}
+//
+////--------------------------------------------------------------
+//void ofxEtherdream::setPoints(const ofxIlda::Frame &ildaFrame) {
+//    setPoints(ildaFrame.getPoints());
+//}
 
 //--------------------------------------------------------------
 void ofxEtherdream::setWaitBeforeSend(bool b) {
@@ -170,4 +177,8 @@ void ofxEtherdream::setPPS(int i) {
 //--------------------------------------------------------------
 int ofxEtherdream::getPPS() const {
     return pps;
+}
+
+unsigned long ofxEtherdream::getEtherdreamId(){
+    return etherdream_get_id(device);
 }

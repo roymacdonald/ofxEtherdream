@@ -59,6 +59,7 @@ static void microsleep(long long us) {
  * Utility function for logging.
  */
 static void trace(struct etherdream *d, char *fmt, ...) {
+	return;
 	if (!trace_fp)
 		return;
 

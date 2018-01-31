@@ -10,10 +10,34 @@
 
 #include "ofMain.h"
 #include "etherdream.h"
-#include "ofxIldaFrame.h"
+#include "ofxIldaPoint.h"
+
+static int IS_ETHERDREAM_LIB_STARTED = false;
 
 class ofxEtherdream : public ofThread {
 public:
+    // must be called once
+    inline static int startEtherdreamLib(){
+        if (IS_ETHERDREAM_LIB_STARTED){
+            ofLog(OF_LOG_NOTICE, "etherdream libs already started -- do nothing");
+            return 0;
+        }
+        
+        etherdream_lib_start();
+        /* Sleep for a bit over two second, to ensure that we see broadcasts
+         * from all available DACs. */
+        usleep(2000000);
+        
+        IS_ETHERDREAM_LIB_STARTED = true;
+		//etherdream.v
+        return 1;
+    }
+    
+    inline static int getNumEtherdream(){
+        startEtherdreamLib();
+        return etherdream_dac_count();
+    }
+    
     ofxEtherdream():state(ETHERDREAM_NOTFOUND), bAutoConnect(false) {}
     
     ~ofxEtherdream() {
@@ -32,6 +56,7 @@ public:
     }
     
     void setup(bool bStartThread = true, int idEtherdream = 0);
+	
     virtual void threadedFunction();
     
     
@@ -43,10 +68,10 @@ public:
     void stop();
 
     void addPoints(const vector<ofxIlda::Point>& _points);
-    void addPoints(const ofxIlda::Frame &ildaFrame);
+    //void addPoints(const ofxIlda::Frame &ildaFrame);
     
     void setPoints(const vector<ofxIlda::Point>& _points);
-    void setPoints(const ofxIlda::Frame &ildaFrame);
+   // void setPoints(const ofxIlda::Frame &ildaFrame);
     
     void send();
     
@@ -55,6 +80,8 @@ public:
     
     void setWaitBeforeSend(bool b);
     bool getWaitBeforeSend() const;
+    
+    unsigned long getEtherdreamId();
     
 private:
     void init();
@@ -69,8 +96,8 @@ private:
     bool bWaitBeforeSend;
     bool bAutoConnect;
     
-    struct etherdream *device;
+    struct etherdream *device = NULL;
     vector<ofxIlda::Point> points;
     
-    int idEtherdreamConnection;
+    unsigned long idEtherdreamConnection;
 };
