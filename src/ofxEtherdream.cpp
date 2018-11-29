@@ -1,23 +1,22 @@
 #include "ofxEtherdream.h"
 
 //--------------------------------------------------------------
-void ofxEtherdream::setup(bool bStartThread, int idEtherdream) {
+void ofxEtherdream::setup(bool bStartThread, int idEtherdream, uint64_t pps) {
     
     idEtherdreamConnection = idEtherdream;
     
     startEtherdreamLib();
 	
-	if(thread.isRunning()) {
+	if(isThreadRunning()) {
 		stopThread();
 		bStartThread = true; 
 	}
-    setPPS(30000);
+    setPPS(pps);
     setWaitBeforeSend(false);
     
     init();
     
-    idEtherdreamConnection = getEtherdreamId();
-    
+
     if(bStartThread) start();
 }
 
@@ -62,7 +61,7 @@ void ofxEtherdream::init() {
         ofLogWarning() << "ofxEtherdream::init - No DACs found";
         return 1;
     }
-
+	idEtherdreamConnection = getEtherdreamId();
     ofLogNotice() << "ofxEtherdream::init - done";
     
     state = ETHERDREAM_FOUND;
@@ -89,7 +88,7 @@ void ofxEtherdream::threadedFunction() {
 
 //--------------------------------------------------------------
 void ofxEtherdream::start() {
-    startThread(true);  // TODO: blocking or nonblocking?
+    startThread();  // TODO: blocking or nonblocking?
 }
 
 //--------------------------------------------------------------

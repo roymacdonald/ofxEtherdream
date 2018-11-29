@@ -48,14 +48,17 @@ public:
     
     void kill() {
         clear();
-        stop();
-        if(stateIsFound()) {
+//        stop();
+		if(isThreadRunning()) {
+			waitForThread();
+		}
+        if(stateIsFound() && device != NULL) {
             etherdream_stop(device);
             etherdream_disconnect(device);
         }
     }
     
-    void setup(bool bStartThread = true, int idEtherdream = 0);
+    void setup(bool bStartThread = true, int idEtherdream = 0, uint64_t pps = 30000);
 	
     virtual void threadedFunction();
     
