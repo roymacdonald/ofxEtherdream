@@ -179,5 +179,8 @@ int ofxEtherdream::getPPS() const {
 }
 
 unsigned long ofxEtherdream::getEtherdreamId(){
-    return etherdream_get_id(device);
+	if(device){
+		return etherdream_get_id(device);
+	}
+	return std::numeric_limits<unsigned long>::max();
 }
