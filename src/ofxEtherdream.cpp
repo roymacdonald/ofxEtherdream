@@ -25,10 +25,24 @@ void ofxEtherdream::setup(bool bStartThread, int idEtherdream, uint64_t pps) {
 bool ofxEtherdream::stateIsFound() {
     return state == ETHERDREAM_FOUND;
 }
-
+//--------------------------------------------------------------
+string ofxEtherdream::getStateAsString(){
+	if(device == NULL || device == nullptr){
+		return "NULL";
+	}else{
+		switch(device->state){
+			case ST_DISCONNECTED: return "DISCONNECTED";
+			case ST_READY: return "READY";
+			case ST_RUNNING: return "RUNNING";
+			case ST_BROKEN: return "BROKEN";
+			case ST_SHUTDOWN: return "SHUTDOWN";
+		}
+	}
+	return "UNKNOWN";
+}
 //--------------------------------------------------------------
 bool ofxEtherdream::checkConnection(bool bForceReconnect) {
-    if((device==NULL) || (device->state == ST_SHUTDOWN || device->state == ST_BROKEN || device->state == ST_DISCONNECTED)) {
+    if((device==NULL) || (device == nullptr) || (device->state == ST_SHUTDOWN || device->state == ST_BROKEN || device->state == ST_DISCONNECTED)) {
         
         if(bForceReconnect) {
             kill();

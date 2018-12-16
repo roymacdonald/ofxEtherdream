@@ -86,6 +86,9 @@ public:
     
     unsigned long getEtherdreamId();
     
+	
+	string getStateAsString(); 
+	
 private:
     void init();
     
