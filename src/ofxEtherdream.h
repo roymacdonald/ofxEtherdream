@@ -12,31 +12,24 @@
 #include "etherdream.h"
 #include "ofxIldaPoint.h"
 
-static int IS_ETHERDREAM_LIB_STARTED = false;
+#define USE_SEND_CHANNEL
 
+#define USE_THREAD 
+#ifdef USE_THREAD
 class ofxEtherdream : public ofThread {
+#else
+class ofxEtherdream {
+#endif
+
+#ifdef USE_THREAD
+#else
+#endif
+
 public:
     // must be called once
-    inline static int startEtherdreamLib(){
-        if (IS_ETHERDREAM_LIB_STARTED){
-            ofLog(OF_LOG_NOTICE, "etherdream libs already started -- do nothing");
-            return 0;
-        }
-        
-        etherdream_lib_start();
-        /* Sleep for a bit over two second, to ensure that we see broadcasts
-         * from all available DACs. */
-        usleep(2000000);
-        
-        IS_ETHERDREAM_LIB_STARTED = true;
-		//etherdream.v
-        return 1;
-    }
+	static int startEtherdreamLib();
     
-    inline static int getNumEtherdream(){
-        startEtherdreamLib();
-        return etherdream_dac_count();
-    }
+	static int getNumEtherdream();
     
     ofxEtherdream():state(ETHERDREAM_NOTFOUND), bAutoConnect(false) {}
     
@@ -46,29 +39,28 @@ public:
     
     bool stateIsFound();
     
-    void kill() {
-        clear();
-//        stop();
-		if(isThreadRunning()) {
-			waitForThread();
-		}
-        if(stateIsFound() && device != NULL) {
-            etherdream_stop(device);
-            etherdream_disconnect(device);
-        }
-    }
-    
-    void setup(bool bStartThread = true, int idEtherdream = 0, uint64_t pps = 30000);
+	void kill();
 	
-    virtual void threadedFunction();
+#ifdef USE_THREAD
+	void setup(int idEtherdream = 0, uint64_t pps = 30000, bool bStartThread = true);
+#else
+	void setup(int idEtherdream = 0, uint64_t pps = 30000);
+#endif
+	
+#ifdef USE_THREAD
+	virtual void threadedFunction();
+#endif
     
-    
+
+	void reset();
     // check if the device has shutdown (weird bug in etherdream driver) and reconnect if nessecary
     bool checkConnection(bool bForceReconnect = true);
     
     void clear();
-    void start();
-    void stop();
+#ifdef USE_THREAD
+	void start();
+	void stop();
+#endif
 
     void addPoints(const vector<ofxIlda::Point>& _points);
     //void addPoints(const ofxIlda::Frame &ildaFrame);
@@ -88,11 +80,16 @@ public:
     
 	
 	string getStateAsString(); 
+#ifdef USE_SEND_CHANNEL
+	ofThreadChannel<vector<ofxIlda::Point>> sendChannel;
+#endif
+private:
 	
-private:
+//	void _send();
+	
     void init();
-    
-private:
+    static bool IS_ETHERDREAM_LIB_STARTED;
+
     enum {
         ETHERDREAM_NOTFOUND = 0,
         ETHERDREAM_FOUND
@@ -102,6 +99,8 @@ private:
     bool bWaitBeforeSend;
     bool bAutoConnect;
     
+	
+	
     struct etherdream *device = NULL;
     vector<ofxIlda::Point> points;
     
