@@ -7,17 +7,20 @@ void ofxEtherdream::setup(bool bStartThread, int idEtherdream, uint64_t pps) {
     
     startEtherdreamLib();
 	
+#ifdef USE_THREAD
 	if(isThreadRunning()) {
 		stopThread();
-		bStartThread = true; 
+		bStartThread = true;
 	}
+#endif
     setPPS(pps);
     setWaitBeforeSend(false);
-    
+	setAutoConnect(true);
     init();
     
-
-    if(bStartThread) start();
+#ifdef USE_THREAD
+	if(bStartThread) start();
+#endif
 }
 
 
@@ -56,22 +59,14 @@ bool ofxEtherdream::checkConnection(bool bForceReconnect) {
 
 //--------------------------------------------------------------
 void ofxEtherdream::init() {
-//    int device_num = etherdream_dac_count();
-//	if (!device_num || idEtherdreamConnection>device_num) {
-//		ofLogWarning() << "ofxEtherdream::init - No DACs found";
-//		return 0;
-//	}
-    
-//	for (int i=0; i<device_num; i++) {
-//		ofLogNotice() << "ofxEtherdream::init - " << i << " Ether Dream " << etherdream_get_id(etherdream_get(i));
-//    }
-    
+	if(!checkConnection(false)){
     ofLogNotice("ofxEtherdream::init - initializing etherdream "+ofToString(idEtherdreamConnection));
     
     device = etherdream_get(idEtherdreamConnection);
     
     ofLogNotice() << "ofxEtherdream::init - Connecting...";
     if (device == NULL || etherdream_connect(device) < 0) {
+		state = ETHERDREAM_NOTFOUND;
         ofLogWarning() << "ofxEtherdream::init - No DACs found";
         return 1;
     }
@@ -79,35 +74,47 @@ void ofxEtherdream::init() {
     ofLogNotice() << "ofxEtherdream::init - done";
     
     state = ETHERDREAM_FOUND;
+	}
 }
 
 //--------------------------------------------------------------
+#ifdef USE_THREAD
+
 void ofxEtherdream::threadedFunction() {
-    while (isThreadRunning() != 0) {
-        
-        switch (state) {
-            case ETHERDREAM_NOTFOUND:
-                if(bAutoConnect) init();
-                break;
-                
-            case ETHERDREAM_FOUND:
-                if(lock()) {
-                    send();
-                    unlock();
-                }
-                break;
-        }
-    }
+	
+	vector<ofxIlda::Point> pts;
+	while(sendPointsChannel.receive(pts)){
+		if(state == ETHERDREAM_NOTFOUND){
+					if(bAutoConnect) init();
+		}
+		if(state == ETHERDREAM_FOUND){
+			sendIldaPoints(pts);
+		}
+	}
+	
+
 }
+#endif
 
 //--------------------------------------------------------------
 void ofxEtherdream::start() {
-    startThread();  // TODO: blocking or nonblocking?
+#ifdef USE_THREAD
+	startThread();
+#else
+	ofLogWarning("ofxEtherdream::start()") << "ofxEtherdream in non threaded mode. this function call is unnecessary";
+#endif
+
 }
 
 //--------------------------------------------------------------
 void ofxEtherdream::stop() {
-    stopThread();
+#ifdef USE_THREAD
+	stopThread();
+#else
+	ofLogWarning("ofxEtherdream::start()") << "ofxEtherdream in non threaded mode. this function call is unnecessary";
+#endif
+
+
 }
 
 //--------------------------------------------------------------
@@ -117,76 +124,70 @@ void ofxEtherdream::send() {
     if(bWaitBeforeSend) etherdream_wait_for_ready(device);
     else if(!etherdream_is_ready(device)) return;
     
-    // DODGY HACK: casting ofxIlda::Point* to etherdream_point*
-    int res = etherdream_write(device, (etherdream_point*)points.data(), points.size(), pps, 1);
-    if (res != 0) {
-        ofLogVerbose() << "ofxEtherdream::write " << res;
-    }
-    points.clear();
+	
+	// DODGY HACK: casting ofxIlda::Point* to etherdream_point*
+#ifdef USE_THREAD
+	sendPointsChannel.send(points);
+#else
+	sendIldaPoints(points);
+#endif
+
+	
 }
 
+//--------------------------------------------------------------
+void ofxEtherdream::sendIldaPoints(vector<ofxIlda::Point>& points){
+	int res = etherdream_write(device, (etherdream_point*)points.data(), points.size(), pps, 1);
+	if (res != 0) {
+		ofLogVerbose() << "ofxEtherdream::write " << res;
+	}
+	points.clear();
+}
 
 //--------------------------------------------------------------
 void ofxEtherdream::clear() {
-    if(lock()) {
-        points.clear();
-        unlock();
-    }
+	points.clear();
 }
 
 //--------------------------------------------------------------
 void ofxEtherdream::addPoints(const vector<ofxIlda::Point>& _points) {
-    if(lock()) {
-        if(!_points.empty()) {
-            points.insert(points.end(), _points.begin(), _points.end());
-        }
-        unlock();
-    }
+	if(!_points.empty()) {
+#ifdef USE_THREAD
+		std::lock_guard<std::mutex> lck(mutex);
+#endif
+		points.insert(points.end(), _points.begin(), _points.end());
+	}
 }
-
-//
-////--------------------------------------------------------------
-//void ofxEtherdream::addPoints(const ofxIlda::Frame &ildaFrame) {
-//    addPoints(ildaFrame.getPoints());
-//}
-//
 
 //--------------------------------------------------------------
 void ofxEtherdream::setPoints(const vector<ofxIlda::Point>& _points) {
-    if(lock()) {
-        points = _points;
-        unlock();
-    }
+#ifdef USE_THREAD
+	std::lock_guard<std::mutex> lck(mutex);
+#endif
+
+	points = _points;
+	send();
 }
-
-//
-////--------------------------------------------------------------
-//void ofxEtherdream::setPoints(const ofxIlda::Frame &ildaFrame) {
-//    setPoints(ildaFrame.getPoints());
-//}
-
 //--------------------------------------------------------------
 void ofxEtherdream::setWaitBeforeSend(bool b) {
-    if(lock()) {
-        bWaitBeforeSend = b;
-        unlock();
-    }
+	bWaitBeforeSend = b;
 }
-
 //--------------------------------------------------------------
 bool ofxEtherdream::getWaitBeforeSend() const {
     return bWaitBeforeSend;
 }
-
-
+//--------------------------------------------------------------
+void ofxEtherdream::setAutoConnect(bool b){
+	bAutoConnect = b;
+}
+//--------------------------------------------------------------
+bool ofxEtherdream::getAutoConnect() const{
+	return bAutoConnect;
+}
 //--------------------------------------------------------------
 void ofxEtherdream::setPPS(int i) {
-    if(lock()) {
-        pps = i;
-        unlock();
-    }
+	pps = i;
 }
-
 //--------------------------------------------------------------
 int ofxEtherdream::getPPS() const {
     return pps;

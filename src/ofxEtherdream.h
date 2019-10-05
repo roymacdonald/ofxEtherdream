@@ -12,9 +12,14 @@
 #include "etherdream.h"
 #include "ofxIldaPoint.h"
 
-static int IS_ETHERDREAM_LIB_STARTED = false;
+//#define USE_THREAD
 
+static int IS_ETHERDREAM_LIB_STARTED = false;
+#ifdef USE_THREAD
 class ofxEtherdream : public ofThread {
+#else
+	class ofxEtherdream{
+#endif
 public:
     // must be called once
     inline static int startEtherdreamLib(){
@@ -49,9 +54,11 @@ public:
     void kill() {
         clear();
 //        stop();
+#ifdef USE_THREAD
 		if(isThreadRunning()) {
 			waitForThread();
 		}
+#endif
         if(stateIsFound() && device != NULL) {
             etherdream_stop(device);
             etherdream_disconnect(device);
@@ -59,10 +66,10 @@ public:
     }
     
     void setup(bool bStartThread = true, int idEtherdream = 0, uint64_t pps = 30000);
-	
+#ifdef USE_THREAD
     virtual void threadedFunction();
-    
-    
+#endif
+		
     // check if the device has shutdown (weird bug in etherdream driver) and reconnect if nessecary
     bool checkConnection(bool bForceReconnect = true);
     
@@ -83,11 +90,18 @@ public:
     
     void setWaitBeforeSend(bool b);
     bool getWaitBeforeSend() const;
-    
+	
+	void setAutoConnect(bool b);
+	bool getAutoConnect() const;
+	
+	
     unsigned long getEtherdreamId();
     
 	
 	string getStateAsString(); 
+	
+	
+	
 	
 private:
     void init();
@@ -97,13 +111,29 @@ private:
         ETHERDREAM_NOTFOUND = 0,
         ETHERDREAM_FOUND
     } state;
-    
-    int pps;
-    bool bWaitBeforeSend;
-    bool bAutoConnect;
-    
+		
+#ifdef USE_THREAD
+		std::atomic<size_t> pps;
+		std::atomic<bool> bWaitBeforeSend;
+		std::atomic<bool> bAutoConnect;
+#else 
+		size_t pps;
+		bool bWaitBeforeSend;
+		bool bAutoConnect;
+		ofMutex mutex;
+#endif
+
+		
     struct etherdream *device = NULL;
     vector<ofxIlda::Point> points;
     
     unsigned long idEtherdreamConnection;
+#ifdef USE_THREAD
+		ofThreadChannel<vector<ofxIlda::Point>> sendPointsChannel;
+#endif
+
+	
+	void sendIldaPoints(vector<ofxIlda::Point>& points);
+	
+	
 };
